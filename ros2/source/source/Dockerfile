@@ -198,7 +198,9 @@ RUN apt-get update && apt-get install -q -y --no-install-recommends \
     libasio-dev \
     libssl-dev \
     libtinyxml2-dev \
-    wget
+    wget \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 ARG ROS_DISTRO=humble
 ENV ROS_DISTRO=$ROS_DISTRO
@@ -219,10 +221,6 @@ RUN apt-get update && rosdep install -y \
         cyclonedds \
         iceoryx_binding_c \
         urdfdom_headers" \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -q -y --no-install-recommends \
-    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
