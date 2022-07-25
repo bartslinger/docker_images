@@ -143,7 +143,16 @@ RUN if [ ! -z "$RUN_TESTS" ]; then \
 
 
 
-FROM --platform=linux/arm/v7 ubuntu:jammy-20220301
+
+
+
+
+
+
+
+
+
+FROM ubuntu:jammy-20220301
 
 # setup timezone
 RUN echo 'Etc/UTC' > /etc/timezone && \
@@ -159,23 +168,62 @@ RUN apt-get update && apt-get install -q -y --no-install-recommends \
     gnupg2 \
     lsb-release \
     python3-pip \
-    wget \
     && rm -rf /var/lib/apt/lists/*
 
+# setup sources.list
+RUN echo "deb http://packages.ros.org/ros2/ubuntu jammy main" > /etc/apt/sources.list.d/ros2-latest.list
+
+# setup keys
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
 
 # setup environment
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
+
+# install bootstrap tools
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    build-essential \
+    python3-rosdep
+
+# bootstrap rosdep
+RUN rosdep init \
+    && rosdep update
+
 ENV ROS2_WS /opt/ros2_ws
-
-
 WORKDIR $ROS2_WS
 COPY --from=build /opt/ros2_ws/install ./install
 
+# install packages
 RUN apt-get update && apt-get install -q -y --no-install-recommends \
-	build-essential \
-	libspdlog1
+    libasio-dev \
+    libssl-dev \
+    libtinyxml2-dev \
+    wget
 
+ARG ROS_DISTRO=humble
+ENV ROS_DISTRO=$ROS_DISTRO
+ENV ROS_VERSION=2 \
+    ROS_PYTHON_VERSION=3
+
+# install dependencies
+RUN apt-get update && rosdep install -y \
+    -t exec \
+    --from-paths install/** \
+    --ignore-src \
+    --skip-keys " \
+        console_bridge \
+        fastcdr \
+        fastrtps \
+        libopensplice69 \
+        rti-connext-dds-6.0.1 \
+        cyclonedds \
+        iceoryx_binding_c \
+        urdfdom_headers" \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -q -y --no-install-recommends \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 RUN bash -c 'source $HOME/.nvm/nvm.sh   && \
@@ -193,7 +241,7 @@ COPY package.json ./
 RUN bash -c 'source /opt/ros2_ws/install/setup.bash && \
 	source $HOME/.nvm/nvm.sh   && \
 	source ament_prefix_path && \
-	npm install && npx generate-ros-messages'
+	npm install'
 
 # setup entrypoint
 COPY ./ros_entrypoint.sh /
